@@ -1,0 +1,146 @@
+import React, { useEffect, useState } from "react";
+import { servicoService } from "../services/api";
+
+export default function Servicos() {
+  const [lista, setLista] = useState([]);
+  const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
+  const [status, setStatus] = useState("");
+  const [editando, setEditando] = useState(null);
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [mensagem, setMensagem] = useState("");
+
+  useEffect(() => {
+    carregar();
+  }, []);
+
+  const carregar = async () => {
+    setCarregando(true);
+    setErro("");
+    try {
+      const res = await servicoService.listar();
+      setLista(res.data || []);
+    } catch (err) {
+      setErro("Erro ao carregar serviços: " + (err.response?.data?.message || err.message));
+      console.error(err);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const salvar = async () => {
+    if (!nome.trim() || !descricao.trim() || !status.trim()) {
+      setErro("Nome, descrição e status são obrigatórios");
+      return;
+    }
+
+    const dados = { nome, descricao, status };
+    setCarregando(true);
+    setErro("");
+    setMensagem("");
+
+    try {
+      if (editando) {
+        await servicoService.atualizar(editando, dados);
+        setMensagem("Serviço atualizado com sucesso!");
+      } else {
+        await servicoService.criar(dados);
+        setMensagem("Serviço cadastrado com sucesso!");
+      }
+      setNome("");
+      setDescricao("");
+      setStatus("");
+      setEditando(null);
+      carregar();
+    } catch (err) {
+      setErro("Erro ao salvar serviço: " + (err.response?.data?.message || err.message));
+      console.error(err);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  const editar = (s) => {
+    setNome(s.nome);
+    setDescricao(s.descricao);
+    setStatus(s.status);
+    setEditando(s.id);
+    setErro("");
+    setMensagem("");
+  };
+
+  const remover = async (id) => {
+    if (!window.confirm("Tem certeza que deseja deletar?")) return;
+
+    setCarregando(true);
+    setErro("");
+    setMensagem("");
+
+    try {
+      await servicoService.remover(id);
+      setMensagem("Serviço deletado com sucesso!");
+      carregar();
+    } catch (err) {
+      setErro("Erro ao deletar serviço: " + (err.response?.data?.message || err.message));
+      console.error(err);
+      setCarregando(false);
+    }
+  };
+
+  return (
+    <div>
+      <h2>Serviços</h2>
+
+      {erro && <div style={{ color: "red", marginBottom: "10px", padding: "10px", backgroundColor: "#ffebee", borderRadius: "4px" }}>{erro}</div>}
+      {mensagem && <div style={{ color: "green", marginBottom: "10px", padding: "10px", backgroundColor: "#e8f5e9", borderRadius: "4px" }}>{mensagem}</div>}
+
+      <div style={{ marginBottom: "15px" }}>
+        <input
+          placeholder="Nome"
+          value={nome}
+          onChange={(e) => setNome(e.target.value)}
+          disabled={carregando}
+          style={{ padding: "8px", marginRight: "5px" }}
+        />
+
+        <input
+          placeholder="Descrição"
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          disabled={carregando}
+          style={{ padding: "8px", marginRight: "5px" }}
+        />
+
+        <input
+          placeholder="Status"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          disabled={carregando}
+          style={{ padding: "8px", marginRight: "5px" }}
+        />
+
+        <button onClick={salvar} disabled={carregando} style={{ padding: "8px 15px" }}>
+          {carregando ? "Processando..." : editando ? "Atualizar" : "Cadastrar"}
+        </button>
+      </div>
+
+      {carregando && <p>Carregando...</p>}
+
+      <ul>
+        {lista.map((s) => (
+          <li key={s.id} style={{ marginBottom: "8px" }}>
+            <strong>{s.nome}</strong> - {s.status}
+            <p style={{ margin: "5px 0" }}>{s.descricao}</p>
+            <button onClick={() => editar(s)} style={{ marginRight: "5px" }} disabled={carregando}>
+              Editar
+            </button>
+            <button onClick={() => remover(s.id)} disabled={carregando}>
+              Excluir
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
